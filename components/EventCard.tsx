@@ -59,6 +59,11 @@ export function EventCard({ event, zoneName, href, onClick }: EventCardProps) {
           {event.isSponsored && (
             <span className="rounded-pill bg-line px-2 py-1 font-medium text-muted">광고</span>
           )}
+          {(event.lat === null || event.lng === null) && (
+            <span className="rounded-pill bg-transparent px-2 py-1 font-medium text-muted">
+              위치 미정
+            </span>
+          )}
         </div>
 
         <h3 className="mt-2 line-clamp-2 font-semibold text-ink group-hover:text-red">{event.title}</h3>

@@ -30,6 +30,10 @@ export async function getEventBySlug(slug: string): Promise<Event | null> {
   return events.find((event) => event.slug === slug) ?? null;
 }
 
+export async function getEventById(id: string): Promise<Event | null> {
+  return events.find((event) => event.id === id) ?? null;
+}
+
 export async function getFreeShowEvents(): Promise<Event[]> {
   return getEvents({ hasInvite: true });
 }
