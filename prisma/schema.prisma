@@ -1,0 +1,221 @@
+// 놀지도 Prisma 스키마
+// NOLZIDO_BUILD_SPEC.md 3장 그대로. PR #1에서는 파일만 작성하며
+// `prisma generate` / `prisma migrate`는 실행하지 않는다 (Neon 연결은 PR #2).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 행사 ----------
+enum EventCategory {
+  POPUP      // 팝업스토어
+  SHOW       // 공연
+  FESTIVAL   // 축제
+  EXHIBITION // 전시
+  FLEA       // 플리마켓
+  ETC
+}
+
+enum EventStatus {
+  DRAFT      // 수집됨, 검수 전
+  PUBLISHED  // 공개
+  ENDED      // 종료
+  REJECTED   // 검수 탈락
+}
+
+enum SourceType {
+  PUBLIC_API // 공공데이터
+  CRAWL      // 크롤링
+  PARTNER    // 파트너 직접 등록
+  MANUAL     // 운영자 수기 입력
+}
+
+model Event {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  title         String
+  category      EventCategory
+  status        EventStatus   @default(DRAFT)
+
+  summary       String?       @db.Text   // 카드용 1~2문장
+  description   String?       @db.Text   // 상세 본문 (마크다운)
+
+  startDate     DateTime
+  endDate       DateTime
+  timeNote      String?       // "토·일 11:00–18:00", "금~일" 등 자유 표기
+  isAlwaysOpen  Boolean       @default(false) // 상시 전시 등
+
+  // 위치
+  zoneId        String?
+  zone          Zone?         @relation(fields: [zoneId], references: [id])
+  venueName     String?
+  address       String?
+  lat           Float?
+  lng           Float?
+
+  // 가격
+  isFree        Boolean       @default(false) // 입장 무료
+  priceNote     String?       // "15,000원", "시음권 별도" 등
+  hasInvite     Boolean       @default(false) // 놀지도 초대석 대상 여부
+
+  // 미디어
+  thumbnailUrl  String?
+  images        String[]      @default([])
+
+  // 출처·신뢰도
+  source        SourceType
+  sourceUrl     String?
+  externalId    String?       // 공공데이터 고유 ID (중복 방지)
+
+  // 운영
+  isSponsored   Boolean       @default(false) // 광고 표시 의무
+  priority      Int           @default(0)     // 노출 가중치
+  viewCount     Int           @default(0)
+  likeCount     Int           @default(0)
+
+  partnerId     String?
+  partner       Partner?      @relation(fields: [partnerId], references: [id])
+
+  shows         Show[]
+  tags          EventTag[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, startDate, endDate])
+  @@index([zoneId, status])
+  @@index([category, status])
+  @@unique([source, externalId])
+}
+
+model Zone {
+  id        String  @id @default(cuid())
+  slug      String  @unique   // "seongsu"
+  name      String             // "성수 · 서울숲"
+  city      String             // "서울"
+  centerLat Float
+  centerLng Float
+  zoomLevel Int     @default(15)
+  order     Int     @default(0)
+  isActive  Boolean @default(true)
+  events    Event[]
+}
+
+model Tag {
+  id     String     @id @default(cuid())
+  name   String     @unique   // "무료입장", "반려동물동반", "아이동반", "야간"
+  events EventTag[]
+}
+
+model EventTag {
+  eventId String
+  tagId   String
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([eventId, tagId])
+}
+
+// ---------- 놀지도 초대석 (무료 공연) ----------
+model Show {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  showAt      DateTime          // 공연 일시 (회차)
+  totalSeats  Int
+  heldSeats   Int      @default(0)  // 예약 점유 (취소 시 감소)
+  isClosed    Boolean  @default(false)
+
+  note        String?           // "미취학 아동 입장 불가" 등
+
+  reservations Reservation[]
+
+  @@index([showAt, isClosed])
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED     // 관람 확인
+  NO_SHOW      // 노쇼
+}
+
+model Reservation {
+  id          String            @id @default(cuid())
+  ticketNo    String            @unique   // NZ-YYMMDD-XXXX
+  showId      String
+  show        Show              @relation(fields: [showId], references: [id])
+
+  name        String
+  phoneHash   String            // 조회용 SHA-256 (name+phone salted)
+  phoneEnc    String            // 복호화 가능 암호화 (알림톡 발송용)
+  seats       Int               @default(1)
+
+  status      ReservationStatus @default(CONFIRMED)
+  cancelledAt DateTime?
+  attendedAt  DateTime?
+
+  reviewId    String?           @unique
+  review      Review?           @relation(fields: [reviewId], references: [id])
+
+  createdAt   DateTime          @default(now())
+
+  @@index([phoneHash])
+  @@index([showId, status])
+}
+
+model Review {
+  id           String       @id @default(cuid())
+  rating       Int          // 1~5
+  content      String       @db.Text
+  images       String[]     @default([])
+  isPublic     Boolean      @default(true)
+  reservation  Reservation?
+  createdAt    DateTime     @default(now())
+}
+
+// ---------- 파트너 (B2B) ----------
+enum PartnerType {
+  PERFORMER  // 공연사
+  BRAND      // 브랜드/팝업
+  ORGANIZER  // 축제 주최
+}
+
+enum PartnerStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+model Partner {
+  id          String        @id @default(cuid())
+  clerkUserId String?       @unique
+  type        PartnerType
+  status      PartnerStatus @default(PENDING)
+
+  companyName String
+  contactName String
+  contactInfo String        // 이메일 또는 전화
+  memo        String?       @db.Text
+
+  events      Event[]
+  createdAt   DateTime      @default(now())
+}
+
+// ---------- 로그 ----------
+model IngestLog {
+  id         String     @id @default(cuid())
+  source     SourceType
+  target     String     // "korea-tourism-festival", "instagram-popup"
+  fetched    Int        @default(0)
+  created    Int        @default(0)
+  updated    Int        @default(0)
+  skipped    Int        @default(0)
+  errorText  String?    @db.Text
+  ranAt      DateTime   @default(now())
+}
