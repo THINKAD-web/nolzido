@@ -1,22 +1,6 @@
 import Link from "next/link";
+import { EventCard } from "@/components/EventCard";
 import { getEvents, getFreeShowEvents, getZones } from "@/lib/queries";
-import type { Event } from "@/lib/types";
-
-const CATEGORY_LABEL: Record<Event["category"], string> = {
-  POPUP: "팝업",
-  SHOW: "공연",
-  FESTIVAL: "축제",
-  EXHIBITION: "전시",
-  FLEA: "플리마켓",
-  ETC: "기타",
-};
-
-function formatDateRange(startDate: string, endDate: string) {
-  const fmt = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric" });
-  const start = fmt.format(new Date(startDate));
-  const end = fmt.format(new Date(endDate));
-  return start === end ? start : `${start} – ${end}`;
-}
 
 export default async function HomePage() {
   const [events, zones, freeShowEvents] = await Promise.all([
@@ -81,42 +65,11 @@ export default async function HomePage() {
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {previewEvents.map((event) => (
-            <Link
+            <EventCard
               key={event.id}
-              href={`/e/${event.slug}`}
-              className="group overflow-hidden rounded-card border border-line bg-card transition-shadow hover:shadow-md"
-            >
-              <div
-                className="aspect-[4/3] bg-line bg-cover bg-center"
-                style={{ backgroundImage: `url(${event.thumbnailUrl})` }}
-              />
-              <div className="p-4">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="rounded-pill bg-ink/5 px-2 py-1 font-medium text-ink">
-                    {CATEGORY_LABEL[event.category]}
-                  </span>
-                  {event.hasInvite && (
-                    <span className="rounded-pill bg-cobalt px-2 py-1 font-medium text-paper">
-                      초대석
-                    </span>
-                  )}
-                  {event.isSponsored && (
-                    <span className="rounded-pill bg-line px-2 py-1 font-medium text-muted">
-                      광고
-                    </span>
-                  )}
-                </div>
-                <h3 className="mt-2 line-clamp-2 font-semibold text-ink group-hover:text-red">
-                  {event.title}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {formatDateRange(event.startDate, event.endDate)}
-                  {event.zoneId && zoneNameById.get(event.zoneId)
-                    ? ` · ${zoneNameById.get(event.zoneId)}`
-                    : ""}
-                </p>
-              </div>
-            </Link>
+              event={event}
+              zoneName={event.zoneId ? zoneNameById.get(event.zoneId) : null}
+            />
           ))}
         </div>
       </section>
@@ -130,20 +83,11 @@ export default async function HomePage() {
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {freeShowEvents.map((event) => (
-            <Link
+            <EventCard
               key={event.id}
-              href={`/free/${event.slug}`}
-              className="rounded-card border-2 border-dashed border-cobalt bg-card p-4 transition-shadow hover:shadow-md"
-            >
-              <span className="rounded-pill bg-cobalt px-2 py-1 text-xs font-semibold text-paper">
-                FREE
-              </span>
-              <h3 className="mt-2 font-semibold text-ink">{event.title}</h3>
-              <p className="mt-1 text-sm text-muted">
-                {event.venueName} ·{" "}
-                {formatDateRange(event.startDate, event.endDate)}
-              </p>
-            </Link>
+              event={event}
+              zoneName={event.zoneId ? zoneNameById.get(event.zoneId) : null}
+            />
           ))}
         </div>
       </section>
