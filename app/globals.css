@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Pretendard가 실제 로드하는 폰트다. --font-sans / --font-display는
+     그 위에 둔 한 겹의 추상화로, 브랜드 디스플레이 서체가 정해지면
+     --font-display만 바꿔주면 된다 (tailwind.config.ts 참고). */
+  --font-sans: var(--font-pretendard);
+  --font-display: var(--font-pretendard);
+}
+
+body {
+  @apply bg-paper text-ink font-sans;
+}
