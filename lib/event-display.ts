@@ -1,4 +1,5 @@
 import type { Event, EventCategory } from "./types";
+import { KST_TIME_ZONE, diffDaysKst, toKstDateKey } from "./kst-date";
 
 // 행사 표기(날짜/D-day/가격)를 위한 단일 소스. 카드·상세·지도·OG 이미지는
 // 전부 이 파일의 함수만 통해 문자열을 만든다 — 표기 로직이 여러 곳에 흩어지면
@@ -7,34 +8,12 @@ import type { Event, EventCategory } from "./types";
 // 색상/톤은 여기서 Tailwind 클래스로 매핑하지 않는다. 각 함수는 tone 유니온
 // 값만 반환하고, 실제 클래스 매핑은 이걸 쓰는 컴포넌트(EventCard 등)가 갖는다.
 //
-// 날짜 계산은 전부 Asia/Seoul 캘린더 날짜(YYYY-MM-DD) 기준으로 한다. 서버는
-// UTC로 뜰 수 있고 방문자는 어느 타임존에 있을지 모르므로, 로컬 타임존에
+// 날짜 계산은 전부 Asia/Seoul 캘린더 날짜(YYYY-MM-DD) 기준으로 한다 (lib/kst-date.ts).
+// 서버는 UTC로 뜰 수 있고 방문자는 어느 타임존에 있을지 모르므로, 로컬 타임존에
 // 의존하는 Date.getMonth()/getDate() 같은 게터는 이 파일에서 쓰지 않는다.
 // 이 함수들은 서버 컴포넌트에서만 호출하고, 클라이언트 컴포넌트에는 이미
 // 계산된 값만 props로 내려준다 — 그래야 서버 렌더 시각과 클라이언트 hydration
 // 시각이 자정 경계를 넘나들며 달라지는 경우를 빼면 안전하다.
-
-const KST_TIME_ZONE = "Asia/Seoul";
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function toKstDateKey(date: Date): string {
-  // en-CA 로케일은 YYYY-MM-DD를 그대로 뱉어줘서 문자열 비교로 날짜 대소를 알 수 있다.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: KST_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function kstDateKeyToUtcMs(key: string): number {
-  const [y, m, d] = key.split("-").map(Number);
-  return Date.UTC(y, m - 1, d);
-}
-
-function diffDaysKst(fromKey: string, toKey: string): number {
-  return Math.round((kstDateKeyToUtcMs(toKey) - kstDateKeyToUtcMs(fromKey)) / MS_PER_DAY);
-}
 
 const KST_SHORT_MONTH_DAY = new Intl.DateTimeFormat("ko-KR", {
   timeZone: KST_TIME_ZONE,

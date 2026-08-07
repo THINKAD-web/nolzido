@@ -1,16 +1,66 @@
 import Link from "next/link";
 import { EventCard } from "@/components/EventCard";
-import { getEvents, getFreeShowEvents, getZones } from "@/lib/queries";
+import { Pagination } from "@/components/Pagination";
+import type { WeekStripDay } from "@/components/WeekStrip";
+import { addDaysToDateKey, toKstDateKey } from "@/lib/kst-date";
+import { getEventCoverageByDate, getEventsPage, getFreeShowEvents, getZones } from "@/lib/queries";
+import { ExploreFilters } from "./_components/ExploreFilters";
+import {
+  buildExploreQueryString,
+  parseCategoryParam,
+  parseDateParam,
+  parsePageParam,
+} from "./_lib/explore-search-params";
 
-export default async function HomePage() {
-  const [events, zones, freeShowEvents] = await Promise.all([
-    getEvents(),
+// mock 데이터 단계에서는 사실상 no-op이지만, PR #2에서 실제 DB 호출로
+// 바뀌었을 때 스펙 6장 가드레일(ISR revalidate 최소 3600초)이 바로 적용되도록
+// 라우트 세그먼트에 미리 걸어둔다.
+export const revalidate = 3600;
+
+const WEEKDAY_FMT = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", weekday: "short" });
+
+function pick(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+interface HomePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const rawParams = await searchParams;
+
+  const todayKey = toKstDateKey(new Date());
+  const fromKey = addDaysToDateKey(todayKey, -2);
+  const toKeyEnd = addDaysToDateKey(todayKey, 6);
+  const visibleRange = { from: fromKey, to: toKeyEnd };
+
+  const category = parseCategoryParam(pick(rawParams.cat));
+  const dateKey = parseDateParam(pick(rawParams.date), visibleRange);
+  const requestedPage = parsePageParam(pick(rawParams.page));
+
+  const [zones, coverage, listResult, freeShowEvents] = await Promise.all([
     getZones(),
+    getEventCoverageByDate(visibleRange, category),
+    getEventsPage({ category, dateKey, page: requestedPage }),
     getFreeShowEvents(),
   ]);
 
   const zoneNameById = new Map(zones.map((zone) => [zone.id, zone.name]));
-  const previewEvents = events.slice(0, 8);
+
+  const weekDays: WeekStripDay[] = Array.from({ length: 9 }, (_, i) => {
+    const key = addDaysToDateKey(fromKey, i);
+    const noon = new Date(`${key}T12:00:00+09:00`);
+    return {
+      date: key,
+      weekdayLabel: WEEKDAY_FMT.format(noon),
+      dayLabel: String(Number(key.split("-")[2])),
+      isToday: key === todayKey,
+      hasEvents: (coverage[key] ?? 0) > 0,
+    };
+  });
+
+  const buildHref = (page: number) => `/${buildExploreQueryString({ category, dateKey, page })}`;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -60,17 +110,27 @@ export default async function HomePage() {
           <h2 className="font-display text-xl font-black text-ink">
             이번 주 놀 거리
           </h2>
-          <span className="text-sm text-muted">{events.length}건 공개됨</span>
+          <span className="text-sm text-muted">{listResult.totalCount}건 공개됨</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {previewEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              zoneName={event.zoneId ? zoneNameById.get(event.zoneId) : null}
-            />
-          ))}
+        <div className="mt-4">
+          <ExploreFilters weekDays={weekDays} activeCategory={category} activeDate={dateKey}>
+            {listResult.events.length > 0 ? (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {listResult.events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    zoneName={event.zoneId ? zoneNameById.get(event.zoneId) : null}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-muted">조건에 맞는 행사가 없습니다.</p>
+            )}
+
+            <Pagination page={listResult.page} totalPages={listResult.totalPages} buildHref={buildHref} />
+          </ExploreFilters>
         </div>
       </section>
 
