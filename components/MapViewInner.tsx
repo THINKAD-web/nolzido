@@ -18,14 +18,16 @@ const CATEGORY_MARKER_COLOR: Record<EventCategory, string> = {
 };
 const INVITE_MARKER_COLOR = "#2438E8";
 
+// 물방울 핀: 정사각형을 세 모서리만 완전히 둥글리고(한쪽만 4px) -45deg
+// 회전시켜 뾰족한 끝이 좌표를 가리키게 한다. iconAnchor는 회전 후 실제
+// 꼭짓점이 오는 지점(박스 하단 중앙)에 맞춘다.
 function markerIcon(color: string, active: boolean) {
-  const size = active ? 26 : 18;
-  const border = active ? 4 : 3;
+  const size = active ? 34 : 26;
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:${color};border:${border}px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50% 50% 50% 4px;background:${color};border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.35);transform:rotate(-45deg)"></div>`,
     iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconAnchor: [size / 2, size],
   });
 }
 

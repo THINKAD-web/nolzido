@@ -97,10 +97,13 @@ export function MapView({ zones, activeZone, events, initialFocusId }: MapViewPr
           />
         </div>
 
-        {/* 모바일: 하단 바텀시트(탭으로 펼치기/접기). 데스크톱(sm 이상): 우측 고정 사이드바. */}
+        {/* 모바일: 하단 바텀시트(탭으로 펼치기/접기). 지도 영역(부모 relative
+            컨테이너) 기준 absolute라 펼쳐도 지도가 최소 40% 높이를 유지한다
+            (뷰포트 기준 fixed였을 때는 헤더/존바까지 포함해 계산돼 지도가
+            거의 안 보이는 문제가 있었다). 데스크톱(sm 이상): 우측 고정 사이드바. */}
         <div
-          className={`fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl border-t border-line bg-paper shadow-lg transition-[height] duration-300 sm:static sm:h-full sm:w-96 sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-none ${
-            sheetExpanded ? "h-[70vh]" : "h-40"
+          className={`absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl border-t border-line bg-paper shadow-lg transition-[height] duration-300 sm:static sm:h-full sm:w-96 sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-none ${
+            sheetExpanded ? "h-[60%]" : "h-40"
           }`}
         >
           <button
